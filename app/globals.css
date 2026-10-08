@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #121020;
+  --color-surface: #1a1730;
+  --color-surface-2: #221e3b;
+  --color-surface-3: #2b2649;
+  --color-line: #322c52;
+  --color-ink: #ece9f8;
+  --color-muted: #a39ec2;
+  --color-faint: #756f97;
+  --color-primary: #8b7cf6;
+  --color-primary-strong: #a194fa;
+  --color-primary-ink: #120f24;
+
+  --color-fit-strong: #2dd4bf; /* teal */
+  --color-fit-good: #60a5fa; /* blue */
+  --color-fit-average: #fbbf24; /* amber */
+  --color-fit-not: #fb7185; /* rose */
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 45%, transparent);
+  }
+}
+
+@utility card {
+  @apply rounded-xl border border-line bg-surface;
+}
+@utility input {
+  @apply w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-faint outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:opacity-60;
+}
+@utility label {
+  @apply mb-1.5 block text-xs font-medium tracking-wide text-muted uppercase;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-primary text-primary-ink hover:bg-primary-strong;
+}
+@utility btn-secondary {
+  @apply btn border border-line bg-surface-2 text-ink hover:bg-surface-3;
+}
+@utility btn-ghost {
+  @apply btn text-muted hover:bg-surface-2 hover:text-ink;
+}
+@utility btn-danger {
+  @apply btn border border-fit-not/40 text-fit-not hover:bg-fit-not/10;
+}
+
+/* Rendered AI markdown */
+.prose-output {
+  @apply text-sm leading-relaxed text-ink;
+}
+.prose-output h1,
+.prose-output h2 {
+  @apply mt-6 mb-3 text-lg font-semibold text-ink first:mt-0;
+}
+.prose-output h3 {
+  @apply mt-5 mb-2 text-base font-semibold text-primary-strong;
+}
+.prose-output h4 {
+  @apply mt-4 mb-2 font-semibold;
+}
+.prose-output p {
+  @apply my-2.5;
+}
+.prose-output ul {
+  @apply my-2.5 list-disc space-y-1 pl-5;
+}
+.prose-output ol {
+  @apply my-2.5 list-decimal space-y-1 pl-5;
+}
+.prose-output strong {
+  @apply font-semibold text-ink;
+}
+.prose-output a {
+  @apply text-primary-strong underline;
+}
+.prose-output hr {
+  @apply my-6 border-line;
+}
+.prose-output blockquote {
+  @apply my-3 border-l-2 border-primary/60 pl-3 text-muted;
+}
+.prose-output code {
+  @apply rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[0.8rem];
+}
+.prose-output pre {
+  @apply my-3 overflow-x-auto rounded-lg border border-line bg-canvas p-3;
+}
+.prose-output pre code {
+  @apply bg-transparent p-0 whitespace-pre-wrap;
+}
+.prose-output table {
+  @apply my-3 block w-full overflow-x-auto border-collapse text-left text-[0.82rem];
+}
+.prose-output th {
+  @apply border border-line bg-surface-2 px-2.5 py-1.5 font-semibold;
+}
+.prose-output td {
+  @apply border border-line px-2.5 py-1.5 align-top;
+}

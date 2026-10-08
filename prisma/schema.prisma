@@ -1,0 +1,205 @@
+// Recruiter AI Co-Pilot — Prisma schema (MySQL)
+//
+// The User / Session / Account / Verification models follow the Better Auth
+// core schema for better-auth 1.7 (verify with `npx @better-auth/cli generate`).
+// `mustChangePassword` is an application field registered with Better Auth as
+// an `additionalField` in lib/auth/auth.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Better Auth models
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id                 String    @id
+  name               String    @db.Text
+  email              String
+  emailVerified      Boolean   @default(false)
+  image              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+  mustChangePassword Boolean   @default(true)
+  sessions           Session[]
+  accounts           Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?  @db.Text
+  userAgent String?  @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @db.Text
+  providerId            String    @db.Text
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Application models
+// Every role-specific record hangs off Role (directly or via Candidate),
+// and deleting a role cascades to its whole workspace.
+// ─────────────────────────────────────────────────────────────
+
+model Role {
+  id               String            @id @default(cuid())
+  name             String            @db.VarChar(200)
+  description      String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  stages           RoleStage[]
+  candidates       Candidate[]
+  sourcingProfiles SourcingProfile[]
+
+  @@index([updatedAt])
+  @@map("role")
+}
+
+/// One row per workflow stage (1–7) per role.
+model RoleStage {
+  id          String   @id @default(cuid())
+  roleId      String
+  stageNumber Int
+  /// Free-text recruiter input for the stage.
+  input       String?  @db.LongText
+  /// Structured input (e.g. selected candidate ids for stages 5–7).
+  inputData   Json?
+  /// Rendered (markdown) AI output.
+  output      String?  @db.LongText
+  /// Structured AI output (e.g. Stage 1 JD/scorecard sections).
+  outputData  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, stageNumber])
+  @@index([roleId])
+  @@map("role_stage")
+}
+
+model Candidate {
+  id             String            @id @default(cuid())
+  roleId         String
+  name           String            @db.VarChar(200)
+  /// Lower-cased, whitespace-collapsed name used for duplicate detection.
+  normalizedName String            @db.VarChar(200)
+  source         String?           @db.VarChar(100)
+  score          Int?
+  category       String?           @db.VarChar(20)
+  summary        String?           @db.Text
+  strengths      Json?
+  gaps           Json?
+  scoredAt       DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  role           Role              @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  cvs            CandidateCV[]
+  tracker        CandidateTracker?
+
+  @@index([roleId])
+  @@index([roleId, score])
+  @@index([roleId, normalizedName])
+  @@map("candidate")
+}
+
+model CandidateCV {
+  id                 String    @id @default(cuid())
+  candidateId        String
+  originalFileName   String    @db.VarChar(255)
+  /// Sanitised, lower-cased file name (without extension) used for duplicate detection.
+  normalizedFileName String    @db.VarChar(255)
+  fileType           String    @db.VarChar(10)
+  /// SHA-256 of the uploaded bytes.
+  fileHash           String    @db.Char(64)
+  extractedText      String    @db.LongText
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  candidate          Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, fileHash])
+  @@index([candidateId])
+  @@index([fileHash])
+  @@map("candidate_cv")
+}
+
+model SourcingProfile {
+  id            String   @id @default(cuid())
+  roleId        String
+  candidateName String   @db.VarChar(200)
+  platform      String   @db.VarChar(20)
+  /// Informational only — never fetched or scraped.
+  referenceUrl  String?  @db.VarChar(2048)
+  profileText   String   @db.LongText
+  analysis      Json?
+  score         Int?
+  verdict       String?  @db.VarChar(20)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([roleId, platform])
+  @@index([roleId, score])
+  @@map("sourcing_profile")
+}
+
+/// Recruiter-owned state. Never overwritten by (re)scoring.
+model CandidateTracker {
+  id             String    @id @default(cuid())
+  candidateId    String
+  decision       String    @default("Pending") @db.VarChar(30)
+  recruiterNotes String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  candidate      Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId])
+  @@map("candidate_tracker")
+}
