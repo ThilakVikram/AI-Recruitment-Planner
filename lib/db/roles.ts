@@ -35,3 +35,33 @@ export async function roleExists(roleId: string): Promise<boolean> {
   const role = await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
   return role !== null;
 }
+
+/** Cross-role overview for the home page: per-role progress plus tracker decision totals. */
+export async function getHomeOverview() {
+  const [roles, decisions, scoredCount] = await Promise.all([
+    prisma.role.findMany({
+      select: {
+        id: true,
+        name: true,
+        updatedAt: true,
+        _count: { select: { candidates: true, sourcingProfiles: true, stages: { where: { output: { not: null } } } } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.candidateTracker.groupBy({ by: ["decision"], _count: { _all: true } }),
+    prisma.candidate.count({ where: { score: { not: null } } }),
+  ]);
+
+  return {
+    roles: roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      updatedAt: r.updatedAt,
+      candidates: r._count.candidates,
+      profiles: r._count.sourcingProfiles,
+      stagesDone: r._count.stages,
+    })),
+    decisions: Object.fromEntries(decisions.map((d) => [d.decision, d._count._all])) as Record<string, number>,
+    scoredCount,
+  };
+}

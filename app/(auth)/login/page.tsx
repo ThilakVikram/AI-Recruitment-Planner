@@ -9,6 +9,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (user) redirect(user.mustChangePassword ? "/change-password" : "/workflow");
 
   const params = await searchParams;
-  const next = typeof params.next === "string" && params.next.startsWith("/") && !params.next.startsWith("//") ? params.next : "/workflow";
+  const next = typeof params.next === "string" && params.next.startsWith("/") && !params.next.startsWith("//") ? params.next : "/";
   return <LoginForm next={next} expired={params.expired === "1"} />;
 }

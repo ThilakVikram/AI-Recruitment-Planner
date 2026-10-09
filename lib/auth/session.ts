@@ -9,14 +9,16 @@ export type AppUser = {
   name: string;
   email: string;
   mustChangePassword: boolean;
+  createdAt: Date;
 };
 
-function toAppUser(user: { id: string; name: string; email: string; mustChangePassword?: boolean | null }): AppUser {
+function toAppUser(user: { id: string; name: string; email: string; mustChangePassword?: boolean | null; createdAt: Date }): AppUser {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     mustChangePassword: user.mustChangePassword !== false,
+    createdAt: user.createdAt,
   };
 }
 

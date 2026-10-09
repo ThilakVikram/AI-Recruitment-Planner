@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch, errorMessage } from "@/lib/api/client";
 import { Alert } from "@/components/ui/alert";
@@ -26,7 +27,7 @@ export function ChangePasswordForm({ email, required }: { email: string; require
     setPending(true);
     try {
       await apiFetch("/api/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
-      router.replace("/workflow");
+      router.replace("/");
       router.refresh();
     } catch (e) {
       setError(errorMessage(e));
@@ -61,7 +62,7 @@ export function ChangePasswordForm({ email, required }: { email: string; require
         {pending && <Spinner />} Update password
       </button>
       {!required && (
-        <a href="/workflow" className="block text-center text-sm text-muted hover:text-ink">Cancel</a>
+        <Link href="/" className="block text-center text-sm text-muted hover:text-ink">Cancel</Link>
       )}
     </form>
   );
