@@ -11,6 +11,11 @@ function createPrismaClient() {
 // Reuse one client across hot reloads in development.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+// After `prisma generate` (e.g. a new migration) the regenerated client is a new class. A client
+// cached from before still has the old schema and fails on new columns, so replace it.
+const cached = globalForPrisma.prisma;
+if (cached && !(cached instanceof PrismaClient)) void (cached as PrismaClient).$disconnect().catch(() => undefined);
+
+export const prisma = cached instanceof PrismaClient ? cached : createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

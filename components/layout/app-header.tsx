@@ -1,17 +1,13 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import { RoleSwitcher } from "@/components/roles/role-switcher";
-import { NewRoleButton } from "@/components/roles/new-role-button";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { NAV, isNavActive } from "./nav";
 import { useSidebar } from "./sidebar-context";
+import { PageHeaderSlot } from "./page-header";
 
-type Props = { roles: { id: string; name: string }[] };
-
-export function AppHeader({ roles }: Props) {
+export function AppHeader() {
   const pathname = usePathname();
-  const roleId = useSearchParams().get("role");
-  const activeRole = roles.find((r) => r.id === roleId) ?? null;
   const current = NAV.find((item) => isNavActive(item.href, pathname));
   const { setOpen } = useSidebar();
 
@@ -23,14 +19,17 @@ export function AppHeader({ roles }: Props) {
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        {current && <span className="font-display text-base font-semibold whitespace-nowrap">{current.label}</span>}
-
-        {current?.roleScoped && (
-          <div className="order-3 flex w-full items-center gap-2 sm:order-none sm:ml-auto sm:w-auto sm:flex-1 sm:justify-end">
-            <RoleSwitcher roles={roles} activeRoleId={activeRole?.id ?? null} />
-            <NewRoleButton />
-          </div>
-        )}
+        {current &&
+          (pathname === current.href ? (
+            <span className="font-display text-base font-semibold whitespace-nowrap">{current.label}</span>
+          ) : (
+            // On a detail page the section name links back to its list, breadcrumb-style.
+            <Link href={current.href} className="flex items-center gap-1.5 font-display text-base font-semibold whitespace-nowrap text-muted hover:text-ink">
+              {current.label}
+              <span className="text-faint" aria-hidden>›</span>
+            </Link>
+          ))}
+        <PageHeaderSlot className="flex min-w-0 flex-1 items-center empty:hidden" />
       </div>
     </header>
   );

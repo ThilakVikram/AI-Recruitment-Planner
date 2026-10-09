@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { NAV, isNavActive } from "./nav";
 import { useSidebar } from "./sidebar-context";
 import { UserMenu } from "./user-menu";
 
 export function AppSidebar({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
-  const roleId = useSearchParams().get("role");
   const { open, setOpen } = useSidebar();
   const close = () => setOpen(false);
 
@@ -33,7 +32,7 @@ export function AppSidebar({ user }: { user: { name: string; email: string } }) 
             return (
               <Link
                 key={item.href}
-                href={item.roleScoped && roleId ? `${item.href}?role=${roleId}` : item.href}
+                href={item.href}
                 onClick={close}
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${

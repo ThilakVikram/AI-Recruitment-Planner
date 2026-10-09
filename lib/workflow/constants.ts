@@ -14,6 +14,10 @@ export function categoryForScore(score: number): FitCategory {
 export const DECISIONS = ["Pending", "Proceed to interview", "Hold", "Reject"] as const;
 export type Decision = (typeof DECISIONS)[number];
 
+/** Outcome once an applicant has been through the process (null = not decided yet). */
+export const FINAL_DECISIONS = ["Selected", "On hold", "Rejected"] as const;
+export type FinalDecision = (typeof FINAL_DECISIONS)[number];
+
 export const PLATFORMS = ["LinkedIn", "Naukri"] as const;
 export type Platform = (typeof PLATFORMS)[number];
 

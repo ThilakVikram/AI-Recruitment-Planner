@@ -35,7 +35,8 @@ export function errorResponse(error: unknown, where: string): Response {
       { status: 400 },
     );
   }
-  console.error(`[${where}] Unexpected error`, describeError(error));
+  const summary = error instanceof Error ? `${error.name}: ${error.message.split("\n").filter(Boolean).slice(-1)[0] ?? ""}` : String(error);
+  console.error(`[${where}] Unexpected error — ${summary}`, describeError(error));
   return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
 }
 

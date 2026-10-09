@@ -23,7 +23,18 @@ function List({ title, items, tone }: { title: string; items: string[]; tone: st
   );
 }
 
-export function ProfileCard({ profile, rank, onRemove }: { profile: SourcingProfileDTO; rank: number | null; onRemove: () => void }) {
+type Props = {
+  profile: SourcingProfileDTO;
+  rank: number | null;
+  onRemove: () => void;
+  /** Optional per-profile (re)analysis, e.g. on the recruitment page. */
+  onAnalyze?: () => void;
+  analyzing?: boolean;
+  /** Extra controls shown on the card (e.g. “Add to applicants” on the recruitment page). */
+  actions?: React.ReactNode;
+};
+
+export function ProfileCard({ profile, rank, onRemove, onAnalyze, analyzing = false, actions }: Props) {
   const [showText, setShowText] = useState(false);
   const a = profile.analysis;
 
@@ -60,11 +71,17 @@ export function ProfileCard({ profile, rank, onRemove }: { profile: SourcingProf
         <p className="mt-2 text-sm text-faint">Not analysed yet.</p>
       )}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {actions}
         <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => setShowText((v) => !v)}>
           {showText ? "Hide" : "Show"} pasted text
         </button>
-        <button type="button" className="btn-ghost px-2 py-1 text-xs hover:text-fit-not" onClick={onRemove}>
+        {onAnalyze && (
+          <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={onAnalyze} disabled={analyzing}>
+            {analyzing ? "Analysing…" : a ? "Analyse again" : "Analyse"}
+          </button>
+        )}
+        <button type="button" className="btn-ghost px-2 py-1 text-xs hover:text-fit-not" onClick={onRemove} disabled={analyzing}>
           Remove
         </button>
       </div>

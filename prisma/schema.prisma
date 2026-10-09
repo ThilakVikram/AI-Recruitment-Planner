@@ -19,16 +19,19 @@ datasource db {
 // ─────────────────────────────────────────────────────────────
 
 model User {
-  id                 String    @id
-  name               String    @db.Text
+  id                 String        @id
+  name               String        @db.Text
   email              String
-  emailVerified      Boolean   @default(false)
-  image              String?   @db.Text
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @default(now()) @updatedAt
-  mustChangePassword Boolean   @default(true)
+  emailVerified      Boolean       @default(false)
+  image              String?       @db.Text
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @default(now()) @updatedAt
+  mustChangePassword Boolean       @default(true)
   sessions           Session[]
   accounts           Account[]
+  applicants         Applicant[]
+  roles              Role[]
+  recruitments       Recruitment[]
 
   @@unique([email])
   @@map("user")
@@ -92,13 +95,39 @@ model Role {
   id               String            @id @default(cuid())
   name             String            @db.VarChar(200)
   description      String?           @db.Text
+  // Requisition details — managed on /roles and fed into the AI prompts.
+  department       String?           @db.VarChar(100)
+  location         String?           @db.VarChar(200)
+  /// Onsite | Hybrid | Remote
+  workMode         String?           @db.VarChar(20)
+  /// Full-time | Part-time | Contract | Internship
+  employmentType   String?           @db.VarChar(30)
+  openings         Int               @default(1)
+  experienceMin    Int?
+  experienceMax    Int?
+  salaryRange      String?           @db.VarChar(100)
+  hiringManager    String?           @db.VarChar(200)
+  targetDate       DateTime?         @db.Date
+  /// Low | Medium | High | Urgent
+  priority         String            @default("Medium") @db.VarChar(20)
+  /// Open | On hold | Filled | Closed
+  status           String            @default("Open") @db.VarChar(20)
+  /// string[]
+  requiredSkills   Json?
+  /// string[]
+  niceToHaveSkills Json?
+  createdById      String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   stages           RoleStage[]
   candidates       Candidate[]
   sourcingProfiles SourcingProfile[]
+  applicants       Applicant[]
+  recruitments     Recruitment[]
 
   @@index([updatedAt])
+  @@index([status])
   @@map("role")
 }
 
@@ -202,4 +231,187 @@ model CandidateTracker {
 
   @@unique([candidateId])
   @@map("candidate_tracker")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Applicants — a shared talent pool, independent of any one role's
+// workflow. An applicant may optionally be linked to the role they
+// applied for; deleting that role keeps the applicant.
+// ─────────────────────────────────────────────────────────────
+
+model Applicant {
+  id              String                   @id @default(cuid())
+  fullName        String                   @db.VarChar(200)
+  /// Lower-cased, whitespace-collapsed name used for search and duplicate hints.
+  normalizedName  String                   @db.VarChar(200)
+  email           String?                  @db.VarChar(255)
+  phone           String?                  @db.VarChar(50)
+  location        String?                  @db.VarChar(200)
+  currentTitle    String?                  @db.VarChar(200)
+  currentCompany  String?                  @db.VarChar(200)
+  experienceYears Decimal?                 @db.Decimal(4, 1)
+  noticePeriod    String?                  @db.VarChar(100)
+  currentCtc      String?                  @db.VarChar(100)
+  expectedCtc     String?                  @db.VarChar(100)
+  source          String?                  @db.VarChar(100)
+  status          String                   @default("New") @db.VarChar(30)
+  linkedinUrl     String?                  @db.VarChar(2048)
+  portfolioUrl    String?                  @db.VarChar(2048)
+  /// string[]
+  skills          Json?
+  /// Free-form recruiter metadata: { key: string, value: string }[]
+  metadata        Json?
+  notes           String?                  @db.Text
+  roleId          String?
+  createdById     String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  role            Role?                    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdBy       User?                    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  files           ApplicantFile[]
+  applications    RecruitmentApplication[]
+  profiles        RecruitmentProfile[]
+
+  @@index([normalizedName])
+  @@index([email])
+  @@index([status])
+  @@index([roleId])
+  @@index([updatedAt])
+  @@map("applicant")
+}
+
+/// Documents attached to an applicant (CV, cover letter, certificates…), stored in the database.
+model ApplicantFile {
+  id               String                   @id @default(cuid())
+  applicantId      String
+  /// CV | Cover letter | Certificate | Portfolio | ID proof | Other
+  kind             String                   @db.VarChar(30)
+  originalFileName String                   @db.VarChar(255)
+  mimeType         String                   @db.VarChar(100)
+  sizeBytes        Int
+  /// SHA-256 of the uploaded bytes.
+  fileHash         String                   @db.Char(64)
+  data             Bytes                    @db.LongBlob
+  /// Plain text pulled from PDF/TXT uploads (null for other formats).
+  extractedText    String?                  @db.LongText
+  createdAt        DateTime                 @default(now())
+  applicant        Applicant                @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applications     RecruitmentApplication[]
+
+  @@unique([applicantId, fileHash])
+  @@index([applicantId])
+  @@map("applicant_file")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Recruitment — one hiring drive for a role. Its number (REC-001…)
+// is the auto-increment id and is used as the URL slug.
+// ─────────────────────────────────────────────────────────────
+
+model Recruitment {
+  id            Int                      @id @default(autoincrement())
+  roleId        String
+  summary       String                   @db.Text
+  /// Positions to fill in this drive (defaults to the role's openings).
+  openings      Int                      @default(1)
+  /// Open | In progress | On hold | Completed | Cancelled
+  status        String                   @default("Open") @db.VarChar(20)
+  /// Kick-off meeting notes by topic: { responsibilities, skills, experience, team } (markdown strings).
+  kickoffFields Json?
+  /// The full kick-off meeting notes as pasted (AI can sort these into kickoffFields).
+  kickoffRaw    String?                  @db.LongText
+  createdById   String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  // Restrict: a role can't be deleted while recruitments still use it.
+  role          Role                     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  createdBy     User?                    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sections      RecruitmentSection[]
+  applications  RecruitmentApplication[]
+  profiles      RecruitmentProfile[]
+
+  @@index([roleId])
+  @@index([status])
+  @@map("recruitment")
+}
+
+/// Latest AI output for one section (kickoff, market-research, sourcing, outreach, screening, final-decision).
+model RecruitmentSection {
+  id            String      @id @default(cuid())
+  recruitmentId Int
+  key           String      @db.VarChar(30)
+  input         String?     @db.LongText
+  /// e.g. { applicationIds: string[] } for candidate-based sections.
+  inputData     Json?
+  output        String?     @db.LongText
+  /// Structured output (Kick-off: JD, scorecard, posts…).
+  outputData    Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  recruitment   Recruitment @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
+
+  @@unique([recruitmentId, key])
+  @@map("recruitment_section")
+}
+
+/// An applicant's CV scored against this recruitment's JD. Decision is never overwritten by rescoring.
+model RecruitmentApplication {
+  id            String         @id @default(cuid())
+  recruitmentId Int
+  applicantId   String
+  cvFileId      String?
+  score         Int?
+  category      String?        @db.VarChar(20)
+  summary       String?        @db.Text
+  strengths     Json?
+  gaps          Json?
+  scoredAt      DateTime?
+  /// Pending | Proceed to interview | Hold | Reject
+  decision      String         @default("Pending") @db.VarChar(30)
+  /// Recruiter's interview screening notes — Recruiter screening writes its report from these.
+  screeningNotes String?       @db.LongText
+  /// AI screening report written from the notes: ScreeningOutput + generatedAt.
+  screeningReport Json?
+  /// Personalised outreach for this applicant: OutreachOutput + generatedAt.
+  outreachMessages Json?
+  /// Candidate-facing rejection message: FinalDecisionOutput + generatedAt.
+  finalDecisionMessages Json?
+  /// Selected | On hold | Rejected — null until decided.
+  finalDecision  String?       @db.VarChar(20)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  recruitment   Recruitment    @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
+  applicant     Applicant      @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  cvFile        ApplicantFile? @relation(fields: [cvFileId], references: [id], onDelete: SetNull)
+
+  @@unique([recruitmentId, applicantId])
+  @@index([recruitmentId, score])
+  @@index([applicantId])
+  @@map("recruitment_application")
+}
+
+/// A LinkedIn / Naukri profile pasted into a recruitment and analysed against its JD.
+model RecruitmentProfile {
+  id             String      @id @default(cuid())
+  recruitmentId  Int
+  candidateName  String      @db.VarChar(200)
+  /// Lower-cased, whitespace-collapsed name — links a profile to a CV applicant for outreach.
+  normalizedName String      @db.VarChar(200)
+  platform       String      @db.VarChar(20)
+  /// Informational only — never fetched or scraped.
+  referenceUrl   String?     @db.VarChar(2048)
+  profileText    String      @db.LongText
+  analysis       Json?
+  score          Int?
+  verdict        String?     @db.VarChar(20)
+  /// Set once the profile has been added to the recruitment's applicants.
+  applicantId    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  recruitment    Recruitment @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
+  applicant      Applicant?  @relation(fields: [applicantId], references: [id], onDelete: SetNull)
+
+  @@index([recruitmentId, score])
+  @@index([recruitmentId, normalizedName])
+  @@map("recruitment_profile")
 }

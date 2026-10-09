@@ -6,7 +6,7 @@ export const metadata = { title: "Log in · Recruiter AI Co-Pilot" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const user = await getCurrentUser();
-  if (user) redirect(user.mustChangePassword ? "/change-password" : "/workflow");
+  if (user) redirect(user.mustChangePassword ? "/change-password" : "/");
 
   const params = await searchParams;
   const next = typeof params.next === "string" && params.next.startsWith("/") && !params.next.startsWith("//") ? params.next : "/";

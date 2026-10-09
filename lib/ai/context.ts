@@ -1,73 +1,44 @@
 import "server-only";
-import { getRole } from "@/lib/db/roles";
-import { getStagesByNumber, type StageRecord } from "@/lib/db/stages";
-import { getStage } from "@/lib/workflow/stages";
-import { ApiError } from "@/lib/api/errors";
-import type { KickoffOutput } from "./schemas/kickoff";
-
-/** Previous stages each stage may see. Only these outputs are sent to the model. */
-export const STAGE_CONTEXT_DEPENDENCIES: Record<number, number[]> = {
-  1: [],
-  2: [1],
-  3: [1, 2],
-  4: [1],
-  5: [1],
-  6: [1],
-  7: [],
-};
-
-const MAX_CONTEXT_CHARS_PER_STAGE = 30_000;
+import type { getRole } from "@/lib/db/roles";
 
 export function clip(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max)}\n\n[…truncated…]`;
 }
 
-function kickoffData(stage?: StageRecord): Partial<KickoffOutput> | null {
-  const data = stage?.outputData;
-  return data && typeof data === "object" && !Array.isArray(data) ? (data as Partial<KickoffOutput>) : null;
-}
+type RoleRecord = NonNullable<Awaited<ReturnType<typeof getRole>>>;
 
-/** Formats previous-stage outputs as labelled sections. */
-export function formatPreviousContext(stages: Map<number, StageRecord>, stageNumbers: number[]): string {
-  const sections = stageNumbers
-    .map((n) => {
-      const output = stages.get(n)?.output?.trim();
-      if (!output) return null;
-      return `### Stage ${n} — ${getStage(n).title} output\n\n${clip(output, MAX_CONTEXT_CHARS_PER_STAGE)}`;
-    })
-    .filter(Boolean);
-  return sections.length ? sections.join("\n\n") : "No previous stage output is available yet.";
+function skillNames(value: unknown): string {
+  return Array.isArray(value) ? value.filter((v) => typeof v === "string").join(", ") : "";
 }
-
-export type RoleHiringContext = {
-  roleName: string;
-  jobDescription: string;
-  scorecard: string;
-  hasJobDescription: boolean;
-  stages: Map<number, StageRecord>;
-};
 
 /**
- * Loads the role and the stage outputs the given stage depends on.
- * JD precedence: the (editable) Stage 4 JD → Stage 1 structured JD → full Stage 1 output.
+ * The role's requisition details (from /roles) as a compact brief for prompts.
+ * Only filled-in fields are listed, so the model can't mistake blanks for requirements.
  */
-export async function loadRoleContext(roleId: string, stageNumber: number): Promise<RoleHiringContext> {
-  const role = await getRole(roleId);
-  if (!role) throw new ApiError(404, "Role not found.");
-
-  const deps = STAGE_CONTEXT_DEPENDENCIES[stageNumber] ?? [];
-  const stages = await getStagesByNumber(roleId, Array.from(new Set([...deps, 1, 4])));
-  const kickoff = kickoffData(stages.get(1));
-
-  const jobDescription =
-    stages.get(4)?.input?.trim() || kickoff?.jobDescription?.trim() || stages.get(1)?.output?.trim() || "";
-  const scorecard = kickoff?.scorecard?.trim() || "No separate scorecard is available — use the job description.";
-
-  return {
-    roleName: role.name,
-    jobDescription: jobDescription || "Not available.",
-    scorecard,
-    hasJobDescription: Boolean(jobDescription),
-    stages,
-  };
+export function formatRoleBrief(role: RoleRecord): string {
+  const experience =
+    role.experienceMin !== null && role.experienceMax !== null
+      ? `${role.experienceMin}–${role.experienceMax} years`
+      : role.experienceMin !== null
+        ? `${role.experienceMin}+ years`
+        : role.experienceMax !== null
+          ? `Up to ${role.experienceMax} years`
+          : "";
+  const facts: [string, string | null][] = [
+    ["Department", role.department],
+    ["Location", role.location],
+    ["Work mode", role.workMode],
+    ["Employment type", role.employmentType],
+    ["Openings", String(role.openings)],
+    ["Experience", experience],
+    ["Salary range", role.salaryRange],
+    ["Hiring manager", role.hiringManager],
+    ["Target fill date", role.targetDate ? role.targetDate.toISOString().slice(0, 10) : null],
+    ["Priority", role.priority],
+    ["Required skills", skillNames(role.requiredSkills)],
+    ["Nice-to-have skills", skillNames(role.niceToHaveSkills)],
+    ["Summary", role.description ? clip(role.description, 3000) : null],
+  ];
+  const lines = facts.filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`);
+  return `${role.name}\n\nRequisition details on file:\n${lines.join("\n")}`;
 }
