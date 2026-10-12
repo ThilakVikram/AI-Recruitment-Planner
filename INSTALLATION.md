@@ -387,14 +387,13 @@ After starting the application, verify the following:
 * Login page loads.
 * Recruiter can log in.
 * First login requires password change.
-* Dashboard loads after changing the password.
+* The home page loads after changing the password.
 * A new role can be created.
-* Role stages are displayed.
-* Candidates can be added.
-* CV upload works.
-* AI functionality works with a valid Anthropic API key.
-* Candidate scoring works.
-* Candidate tracker saves decisions and notes.
+* A recruitment can be started for the role (only the role and openings are needed).
+* Kick-off notes can be saved, and **Job Management** generates with a valid Anthropic API key.
+* CV upload works on the recruitment page, and applicants are scored and ranked.
+* Clicking an applicant opens the side panel; setting the decision to **Proceed to interview** shows Outreach messages and Recruiter screening.
+* Setting the final decision to **Rejected** shows Final decision messages.
 
 ---
 
@@ -504,7 +503,36 @@ npm run dev -- -p 3001
 
 ---
 
-# 16. Database Reset During Development
+# 16. Updating an Existing Installation
+
+After pulling new code, apply any new database migrations and restart the app. Recent changes added migrations for interview screening notes, screening reports, final decisions, per-applicant messages and recruitment openings.
+
+Development:
+
+```bash
+npm install
+npm run db:migrate
+npm run dev
+```
+
+Production:
+
+```bash
+npm install
+npm run db:deploy
+npm run build
+pm2 restart recruiter-ai --update-env
+```
+
+No new environment variables are required.
+
+If `next dev` was already running when the migrations were applied, restart it so the regenerated Prisma client is picked up.
+
+The **Workflow** and **Candidate Tracker** pages have been removed. Bookmarks to `/workflow` or `/tracker` will no longer work — use **Recruitment** instead. Their old database tables are left in place and are not used.
+
+---
+
+# 17. Database Reset During Development
 
 If the local database needs to be completely recreated during development, use Prisma carefully.
 
@@ -524,7 +552,7 @@ npm run db:seed
 
 ---
 
-# 17. Development Workflow
+# 18. Development Workflow
 
 When working on the project:
 
@@ -558,7 +586,7 @@ npm run build
 
 ---
 
-# 18. Setup Complete
+# 19. Setup Complete
 
 The project is ready when:
 
@@ -572,4 +600,4 @@ starts successfully and the application is accessible at:
 http://localhost:3000
 ```
 
-You should then be able to log in, change the temporary password, create a role, and start using the recruitment workflow.
+You should then be able to log in, change the temporary password, create a role, and start a recruitment for it.
