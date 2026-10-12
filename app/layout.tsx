@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Recruiter AI Co-Pilot",
   description: "Internal recruiting workbench",
   robots: { index: false, follow: false },
+  icons:{
+    icon:"/favicon.jpg"
+  }
 };
 
 export const viewport: Viewport = { themeColor: "#121020" };
